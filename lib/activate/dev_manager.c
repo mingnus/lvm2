@@ -295,9 +295,15 @@ static int _info_run(const char *dlid, struct dm_info *dminfo,
 		length *= _seg_len(seg_status->seg);
 
 		/* Uses max DM_THIN_MAX_METADATA_SIZE sectors for metadata device */
-		if (lv_is_thin_pool_metadata(seg_status->seg->lv) &&
-		    (length > DM_THIN_MAX_METADATA_SIZE))
-			length = DM_THIN_MAX_METADATA_SIZE;
+		if (lv_is_thin_pool_metadata(seg_status->seg->lv)) {
+			if (start > DM_THIN_MAX_METADATA_SIZE)
+				length = 0;
+			else if (start + length > DM_THIN_MAX_METADATA_SIZE) {
+				uint64_t divisor = (uint64_t)seg_status->seg->area_count * seg_status->seg->stripe_size;
+				divisor = (divisor > 0) ? divisor : 1;
+				length = dm_round_down(DM_THIN_MAX_METADATA_SIZE - start, divisor);
+			}
+		}
 
 		/* Uses virtual size with headers for VDO pool device */
 		if (lv_is_vdo_pool(seg_status->seg->lv))
