@@ -3494,32 +3494,12 @@ static int _thin_validate_device_id(uint32_t device_id)
 	return 1;
 }
 
-int dm_tree_node_add_thin_pool_target(struct dm_tree_node *node,
-				      uint64_t size,
-				      uint64_t transaction_id,
-				      const char *metadata_uuid,
-				      const char *pool_uuid,
-				      uint32_t data_block_size,
-				      uint64_t low_water_mark,
-				      unsigned skip_block_zeroing)
+static int append_thin_pool_metadata_node(struct dm_tree_node *node,
+					  struct load_segment *seg,
+					  const char *metadata_uuid)
 {
-	struct load_segment *seg, *mseg;
+	struct load_segment *mseg;
 	uint64_t devsize = 0;
-
-	if (data_block_size < DM_THIN_MIN_DATA_BLOCK_SIZE) {
-		log_error("Data block size %u is lower then %u sectors.",
-			  data_block_size, DM_THIN_MIN_DATA_BLOCK_SIZE);
-		return 0;
-	}
-
-	if (data_block_size > DM_THIN_MAX_DATA_BLOCK_SIZE) {
-		log_error("Data block size %u is higher then %u sectors.",
-			  data_block_size, DM_THIN_MAX_DATA_BLOCK_SIZE);
-		return 0;
-	}
-
-	if (!(seg = _add_segment(node, SEG_THIN_POOL, size)))
-		return_0;
 
 	if (!(seg->metadata = dm_tree_find_node_by_uuid(node->dtree, metadata_uuid))) {
 		log_error("Missing metadata uuid %s.", metadata_uuid);
@@ -3541,12 +3521,54 @@ int dm_tree_node_add_thin_pool_target(struct dm_tree_node *node,
 		}
 	}
 
+	return 1;
+}
+
+static int append_thin_pool_data_node(struct dm_tree_node *node,
+				      struct load_segment *seg,
+				      const char *pool_uuid)
+{
 	if (!(seg->pool = dm_tree_find_node_by_uuid(node->dtree, pool_uuid))) {
 		log_error("Missing pool uuid %s.", pool_uuid);
 		return 0;
 	}
 
 	if (!_link_tree_nodes(node, seg->pool))
+		return_0;
+
+	return 1;
+}
+
+int dm_tree_node_add_thin_pool_target(struct dm_tree_node *node,
+				      uint64_t size,
+				      uint64_t transaction_id,
+				      const char *metadata_uuid,
+				      const char *pool_uuid,
+				      uint32_t data_block_size,
+				      uint64_t low_water_mark,
+				      unsigned skip_block_zeroing)
+{
+	struct load_segment *seg;
+
+	if (data_block_size < DM_THIN_MIN_DATA_BLOCK_SIZE) {
+		log_error("Data block size %u is lower then %u sectors.",
+			  data_block_size, DM_THIN_MIN_DATA_BLOCK_SIZE);
+		return 0;
+	}
+
+	if (data_block_size > DM_THIN_MAX_DATA_BLOCK_SIZE) {
+		log_error("Data block size %u is higher then %u sectors.",
+			  data_block_size, DM_THIN_MAX_DATA_BLOCK_SIZE);
+		return 0;
+	}
+
+	if (!(seg = _add_segment(node, SEG_THIN_POOL, size)))
+		return_0;
+
+	if (!append_thin_pool_metadata_node(node, seg, metadata_uuid))
+		return_0;
+
+	if (!append_thin_pool_data_node(node, seg, pool_uuid))
 		return_0;
 
 	/* Clean flag delay_resume_if_new - so corelog gets resumed */
