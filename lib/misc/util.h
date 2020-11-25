@@ -29,6 +29,26 @@
 
 #define is_power_of_2(n) ((n) && !((n) & ((n) - 1)))
 
+/*
+ * Ceiling(n / sz)
+ */
+#define dm_div_up(n, sz) (((n) + (sz) - 1) / (sz))
+
+/*
+ * Ceiling(n / size) * size
+ */
+#define dm_round_up(n, sz) (dm_div_up((n), (sz)) * (sz))
+
+/*
+ * Floor(n / sz)
+ */
+#define dm_div_down(n, sz) ((n) / (sz))
+
+/*
+ * Floor(n / size) * size
+ */
+#define dm_round_down(n, sz) (dm_div_down((n), (sz)) * (sz))
+
 #if defined(__clang__) || (defined(__GNUC__) && __GNUC__ >= 4 && __GNUC_MINOR__ >= 6)
 #define uninitialized_var(x) x
 #else

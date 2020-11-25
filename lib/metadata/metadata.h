@@ -38,17 +38,6 @@
 #define MIRROR_LOG_OFFSET	2	/* sectors */
 #define VG_MEMPOOL_CHUNK	10240	/* in bytes, hint only */
 
-/*
- * Ceiling(n / sz)
- */
-#define dm_div_up(n, sz) (((n) + (sz) - 1) / (sz))
-
-/*
- * Ceiling(n / size) * size
- */
-#define dm_round_up(n, sz) (dm_div_up((n), (sz)) * (sz))
-
-
 /* Various flags */
 /* See metadata-exported.h for the complete list. */
 /* Note that the bits no longer necessarily correspond to LVM1 disk format */
