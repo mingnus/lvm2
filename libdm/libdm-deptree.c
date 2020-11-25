@@ -2990,6 +2990,13 @@ static struct load_segment *_add_segment(struct dm_tree_node *dnode, unsigned ty
 	return seg;
 }
 
+static void _remove_segment(struct dm_tree_node *dnode, struct load_segment *mseg)
+{
+	/* delete segment */
+	dnode->props.segment_count--;
+	dm_list_del(&mseg->list);
+}
+
 int dm_tree_node_add_snapshot_origin_target(struct dm_tree_node *dnode,
 					    uint64_t size,
 					    const char *origin_uuid)
@@ -3511,14 +3518,26 @@ static int append_thin_pool_metadata_node(struct dm_tree_node *node,
 
 	/* FIXME: more complex target may need more tweaks */
 	dm_list_iterate_items(mseg, &seg->metadata->props.segs) {
-		devsize += mseg->size;
 		if (devsize > DM_THIN_MAX_METADATA_SIZE) {
-			log_debug_activation("Ignoring %" PRIu64 " of device.",
-					     devsize - DM_THIN_MAX_METADATA_SIZE);
-			mseg->size -= (devsize - DM_THIN_MAX_METADATA_SIZE);
-			devsize = DM_THIN_MAX_METADATA_SIZE;
-			/* FIXME: drop remaining segs */
-		}
+			/* drop remaining segs */
+			log_debug_activation("Ignoring %" PRIu64 " of device.", mseg->size);
+			mseg->size = 0;
+			_remove_segment(seg->metadata, mseg);
+
+		} else if (devsize + mseg->size > DM_THIN_MAX_METADATA_SIZE) {
+			/*
+			 * Adjust the segment crosses the limit.
+			 * The new size is rounded down to stripe boundary,
+			 * to ensure the metadata size is less than the limit.
+			 */
+			uint64_t divisor = ((uint64_t)mseg->area_count * mseg->stripe_size) ? : 1;
+			uint64_t new_size = dm_round_down(DM_THIN_MAX_METADATA_SIZE - devsize, divisor);
+			log_debug_activation("Ignoring %" PRIu64 " of device.", mseg->size - new_size);
+			mseg->size = new_size;
+			devsize += mseg->size;
+
+		} else
+			devsize += mseg->size;
 	}
 
 	return 1;
